@@ -1,0 +1,29 @@
+name: CLUB KISS admin order notifications
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: club-kiss-admin-push
+  cancel-in-progress: false
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Firebase Admin SDK
+        run: npm install --no-save --no-package-lock firebase-admin@13
+      - name: Send pending order notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/send-order-push.cjs
