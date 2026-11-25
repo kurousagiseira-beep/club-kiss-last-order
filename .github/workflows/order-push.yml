@@ -2,7 +2,7 @@ name: CLUB KISS admin order notifications
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-57/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +21,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Cache Firebase Admin SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: firebase-admin-13-node22-v1-${{ runner.os }}
       - name: Install Firebase Admin SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: npm install --no-save --no-package-lock firebase-admin@13
       - name: Send pending order notifications
         env:
