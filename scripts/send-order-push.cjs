@@ -8,6 +8,26 @@ async function main() {
   catch { throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain the complete Firebase service account JSON'); }
   admin.initializeApp({ credential: admin.credential.cert(credentials) });
   const db = admin.firestore();
+  // Assistance requests use a separate delivery marker so they do not affect orders.
+  const help = await db.collection('club_kiss_help_requests').where('active','==',true).get();
+  if (!help.empty) {
+    const devices = (await db.collection('club_kiss_admin_push_tokens').get()).docs.filter(d=>typeof d.data().token==='string'&&d.data().token);
+    for (const request of help.docs) {
+      const x=request.data();
+      const stamp=x.createdAt?.toMillis?.();
+      if (!stamp || x.pushDeliveredMs===stamp || !devices.length) continue;
+      const result=await admin.messaging().sendEachForMulticast({
+        tokens:devices.map(d=>d.data().token),
+        data:{title:'CLUB KISS｜🔥 盛り上げ応援要請',body:String(x.table||'不明')+'｜担当：'+String(x.staff||'不明')+'　応援をお願いします。',url:'https://kurousagiseira-beep.github.io/club-kiss-last-order/'},
+        webpush:{headers:{Urgency:'high'}}
+      });
+      console.log('Assistance push:',result.successCount,'success,',result.failureCount,'failed');
+      if(result.successCount) await db.runTransaction(async tx=>{
+        const latest=await tx.get(request.ref);
+        if(latest.data()?.createdAt?.toMillis?.()===stamp) tx.update(request.ref,{pushDeliveredMs:stamp});
+      });
+    }
+  }
   const stateRef = db.doc('club_kiss_push_system/order_cursor');
   const state = await stateRef.get();
   // First run starts from 10 minutes ago so recent test orders can be delivered.
